@@ -1,12 +1,11 @@
 import os
 import json
-import matplotlib as plt
+from matplotlib import pyplot as plt
 import numpy as np
 
 from keras.models import Model
 from keras.layers import Input, Dense, Lambda
 from keras.layers.merge import concatenate
-from keras.callbacks import EarlyStopping
 from keras import backend as K
 
 
@@ -29,14 +28,14 @@ class BaseModel():
         self.trainers = {}
         self.history = None
 
-    def save_model(self, out_dir, epoch):
-        folder = os.path.join(out_dir, 'epoch_%05d' % epoch)
+    def save_model(self, out_dir):
+        folder = os.path.join(out_dir)
         if not os.path.isdir(folder):
             os.mkdir(folder)
 
         for k, v in self.trainers.items():
             filename = os.path.join(folder, '%s.hdf5' % (k))
-            v.save(filename)
+            v.save_weights(filename)
 
     def store_to_save(self, name):
         self.trainers[name] = getattr(self, name)
@@ -44,7 +43,7 @@ class BaseModel():
     def load_model(self, folder):
         for k, v in self.trainers.items():
             filename = os.path.join(folder, '%s.hdf5' % (k))
-            getattr(self, k).load_model(filename)
+            getattr(self, k).load_weights(filename)
 
     def main_train(self, dataset, training_epochs=100, batch_size=100, callbacks=[], verbose=True):
 
@@ -72,7 +71,7 @@ class BaseModel():
         self.save_model(wgt_out_dir)
         self.plot_loss(res_out_dir)
 
-        with open(os.path.join(res_out_dir, '-history.json'), 'w') as f:
+        with open(os.path.join(res_out_dir, 'history.json'), 'w') as f:
             json.dump(self.history, f)
 
     def plot_loss(self, path_save = None):
@@ -82,8 +81,8 @@ class BaseModel():
         best_iter = np.argmin(self.history['val_loss'])
         min_val_loss = self.history['val_loss'][best_iter]
 
-        plt.plot(nb_epoch, self.history['val_loss'], label='train (min: {:0.2f}, epch: {:0.2f})'.format(min_val_loss, best_iter))
-        plt.plot(nb_epoch, self.history['loss'], label = 'test')
+        plt.plot(range(nb_epoch), self.history['val_loss'], label='test (min: {:0.2f}, epch: {:0.2f})'.format(min_val_loss, best_iter))
+        plt.plot(range(nb_epoch), self.history['loss'], label = 'train')
         plt.xlabel('epochs')
         plt.ylabel('loss')
         plt.title('loss evolution')
@@ -91,8 +90,6 @@ class BaseModel():
 
         if path_save is not None:
             plt.savefig(os.path.join(path_save, 'loss_evolution.png'))
-
-
 
     #abstractmethod
     def train(self, training_dataset,training_epochs, batch_size, callbacks, validation_data, verbose):
@@ -102,16 +99,14 @@ class BaseModel():
 
     pass
 
-
-class CVAE():
-    def __init__(self, input_dim=96, cond_dim=12, z_dim=2, e_dims =[24], d_dims =[24],name='cvae'):
-
+class CVAE(BaseModel):
+    def __init__(self, input_dim=96, cond_dim=12, z_dim=2, e_dims =[24], d_dims =[24], **kwargs):
+        super().__init__(**kwargs)
         self.input_dim = input_dim
         self.cond_dim = cond_dim
         self.z_dim = z_dim
         self.e_dims = e_dims
         self.d_dims = d_dims
-        self.name = name
         self.encoder = None
         self.decoder = None
         self.cvae = None
@@ -151,6 +146,11 @@ class CVAE():
         # Defining and compiling cvae model
         self.cvae = Model(inputs=[x_true, cond_true], outputs=x_hat)
         self.cvae.compile(optimizer='rmsprop', loss=vae_loss, metrics=[kl_loss, recon_loss])
+
+        # Store trainers
+        self.store_to_save('cvae')
+        self.store_to_save('encoder')
+        self.store_to_save('decoder')
 
         if verbose:
             print("complete model: ")
@@ -221,31 +221,22 @@ class CVAE():
 
         return vae_loss, recon_loss, kl_loss
 
-    def train(self, dataset,  batch_size=20, training_epochs=10):
+    def train(self, dataset_train, training_epochs=10, batch_size=20, callbacks = [], validation_data = None, verbose = True):
         """
 
-        :param data:
-        :param batch_size:
+        :param dataset_train:
         :param training_epochs:
+        :param batch_size:
+        :param callbacks:
+        :param validation_data:
+        :param verbose:
         :return:
         """
 
-        (x_train, cond_train), (x_test, cond_test) = dataset
+        assert len(dataset_train) == 2  # Check that both x and cond are present
 
-        # Setting callbacks
-        callbacks = []
-        early_stop = EarlyStopping(monitor='val_loss', patience=30)
-        callbacks.append(early_stop)
-
-        cvae_hist = self.cvae.fit([x_train, cond_train], x_train, batch_size=batch_size, epochs=training_epochs,
-                             validation_data=([x_test, cond_test], x_test),
+        cvae_hist = self.cvae.fit(dataset_train['x'], dataset_train['y'], batch_size=batch_size, epochs=training_epochs,
+                             validation_data=validation_data,
                              callbacks=callbacks, verbose=True)
 
         return cvae_hist
-
-    def save(self, path_folder):
-
-        if not os.path.isdir(path_folder):
-            os.mkdir(path_folder)
-
-        print('saving cvae model to %s...' % path_folder)
