@@ -78,10 +78,12 @@ class BaseModel():
 
         nb_epoch = len(self.history['loss'])
 
-        best_iter = np.argmin(self.history['val_loss'])
-        min_val_loss = self.history['val_loss'][best_iter]
+        if 'val_loss' in self.history.keys():
+            best_iter = np.argmin(self.history['val_loss'])
+            min_val_loss = self.history['val_loss'][best_iter]
 
-        plt.plot(range(nb_epoch), self.history['val_loss'], label='test (min: {:0.2f}, epch: {:0.2f})'.format(min_val_loss, best_iter))
+            plt.plot(range(nb_epoch), self.history['val_loss'], label='test (min: {:0.2f}, epch: {:0.2f})'.format(min_val_loss, best_iter))
+
         plt.plot(range(nb_epoch), self.history['loss'], label = 'train')
         plt.xlabel('epochs')
         plt.ylabel('loss')
@@ -97,7 +99,8 @@ class BaseModel():
         Plase override "train" method in the derived model!
         '''
 
-    pass
+        pass
+
 
 class CVAE(BaseModel):
     def __init__(self, input_dim=96, cond_dim=12, z_dim=2, e_dims =[24], d_dims =[24], **kwargs):
