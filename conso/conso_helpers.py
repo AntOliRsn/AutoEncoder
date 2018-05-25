@@ -78,8 +78,14 @@ def pyplot_latent_space_projection(x_proj, calendar_info, path_folder_out, name=
 
     month = np.array(calendar_info.month)
 
-    mask_isweekday = calendar_info.is_weekday.astype('bool')
-    mask_ishd = calendar_info.is_hd.astype('bool')
+    mask_isweekday = False
+    mask_ishd = False
+
+    if 'is_weekday' in calendar_info.columns:
+        mask_isweekday = calendar_info.is_weekday.astype('bool')
+
+    if 'is_hd' in calendar_info.columns:
+        mask_ishd = calendar_info.is_hd.astype('bool')
 
     plt.figure(figsize=(17, 15))
     plt.scatter(x_proj[mask_isweekday, 0], x_proj[mask_isweekday, 1], marker='.', lw=2,

@@ -103,13 +103,14 @@ class BaseModel():
 
 
 class CVAE(BaseModel):
-    def __init__(self, input_dim=96, cond_dim=12, z_dim=2, e_dims =[24], d_dims =[24], **kwargs):
+    def __init__(self, input_dim=96, cond_dim=12, z_dim=2, e_dims=[24], d_dims=[24], beta=1, **kwargs):
         super().__init__(**kwargs)
         self.input_dim = input_dim
         self.cond_dim = cond_dim
         self.z_dim = z_dim
         self.e_dims = e_dims
         self.d_dims = d_dims
+        self.beta = beta
         self.encoder = None
         self.decoder = None
         self.cvae = None
@@ -220,7 +221,7 @@ class CVAE(BaseModel):
             # D_KL(Q(z|X,y) || P(z|X)); calculate in closed form as both dist. are Gaussian
             kl = kl_loss(y_true=y_true, y_pred=y_pred)
 
-            return recon + kl
+            return recon + self.beta*kl
 
         return vae_loss, recon_loss, kl_loss
 
@@ -236,7 +237,7 @@ class CVAE(BaseModel):
         :return:
         """
 
-        assert len(dataset_train) == 2  # Check that both x and cond are present
+        assert len(dataset_train) >= 2  # Check that both x and cond are present
 
         cvae_hist = self.cvae.fit(dataset_train['x'], dataset_train['y'], batch_size=batch_size, epochs=training_epochs,
                              validation_data=validation_data,

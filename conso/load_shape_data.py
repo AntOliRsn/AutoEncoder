@@ -263,8 +263,11 @@ def get_x_conso_autoencoder(data_conso_df, dict_colnames_conso):
 
     x_conso, dict_colnames_conso = get_x_conso(data_conso_df, dict_colnames_conso)
 
-    list_variables = ['conso']
+    list_variables = ['conso', 'meteo']
     x_conso = select_variables(x_conso, dict_colnames_conso, list_variables)
+
+    # Keep only average temperature
+    x_conso = x_conso.drop([el for el in x_conso.columns if 'Th+0' in el[:8]], axis=1)
 
     return x_conso
 
@@ -353,10 +356,9 @@ def normalize_xconso(dict_xconso, dict_colnames_conso, type_scaler = 'standard')
     return dict_xconso_scaled
 
 
-def get_x_cond_autoencoder(x_conso):
+def get_x_cond_autoencoder(x_conso, type_x = ['conso'], type_cond = ['month', 'weekday'], data_conso_df = None):
 
     ### X
-
     x_ds = x_conso.copy()
 
     # Enumerate days
@@ -364,15 +366,32 @@ def get_x_cond_autoencoder(x_conso):
     x_ds['day'] = nb_day
     x_ds['minute'] = x_ds['ds'].dt.hour * 100 + x_ds['ds'].dt.minute
 
-    # pandas pivot
-    x = x_ds[['conso_nat_t0', 'day', 'minute']].pivot('day', 'minute')['conso_nat_t0']
+    x_ae = np.zeros((nb_day.max()+1, 0))
+    if 'conso' in type_x:
+        # pandas pivot
+        x = x_ds[['conso_nat_t0', 'day', 'minute']].pivot('day', 'minute')['conso_nat_t0']
 
-    # Replacing missing values due to the change of hour in march
-    # TODO: interpolation for the hour of the given days
-    x[x.isna()] = x.as_matrix().mean(axis=0)[7]
+        # Replacing missing values due to the change of hour in march
+        # TODO: interpolation for the hour of the given days
+        x[x.isna()] = x.as_matrix().mean(axis=0)[7]
 
-    # Converting to np.array
-    x = x.as_matrix()
+        # Converting to np.array
+        x = x.as_matrix()
+
+        x_ae = np.concatenate((x_ae, x), axis=1)
+
+    if 'temperature' in type_x:
+        # pandas pivot
+        x = x_ds[['meteo_natTh+0', 'day', 'minute']].pivot('day', 'minute')['meteo_natTh+0']
+
+        # Replacing missing values due to the change of hour in march
+        # TODO: interpolation for the hour of the given days
+        x[x.isna()] = x.as_matrix().mean(axis=0)[7]
+
+        # Converting to np.array
+        x = x.as_matrix()
+
+        x_ae = np.concatenate((x_ae, x), axis=1)
 
     # Getting corresponding date of each row
     ds = x_conso[(x_conso['ds'].dt.hour == 0) & (x_conso['ds'].dt.minute == 0)]['ds']
@@ -380,14 +399,14 @@ def get_x_cond_autoencoder(x_conso):
 
     ### Cond
 
-    cond = get_cond_autoencoder(ds)
+    cond = get_cond_autoencoder(ds, type_cond, data_conso_df)
 
-    assert x.shape[0] == cond.shape[0]
+    assert x_ae.shape[0] == cond.shape[0]
 
-    return x, cond, ds
+    return x_ae, cond, ds
 
 
-def get_cond_autoencoder(ds):
+def get_cond_autoencoder(ds, type_cond=['month', 'weekday'], data_conso_df=None):
 
     # get calendar info
     calendar_info = pd.DataFrame(ds)
@@ -397,14 +416,44 @@ def get_cond_autoencoder(ds):
 
     # get conditional variables
 
-    # month
-    one_hot_month = pd.get_dummies(calendar_info.month, prefix='month')
-    # weekday
-    one_hot_weekday = pd.get_dummies(calendar_info.is_weekday, prefix='weekday')
+    list_one_hot = list()
+
+    if 'month' in type_cond:
+        # month
+        one_hot_month = pd.get_dummies(calendar_info.month, prefix='month')
+        list_one_hot.append(one_hot_month)
+
+    if 'weekday' in type_cond:
+        # weekday
+        one_hot_weekday = pd.get_dummies(calendar_info.is_weekday, prefix='weekday')
+        list_one_hot.append(one_hot_weekday)
+
+    if 'temp' in type_cond:
+        meteo_nat_df = data_conso_df[['ds', 'meteo_natTh+0']].copy()
+        day_count = (meteo_nat_df['ds'] - meteo_nat_df['ds'][0]).apply(lambda td: td.days)
+        meteo_nat_df['day'] = day_count
+
+        mean_meteo_nat_df = pd.DataFrame(meteo_nat_df.groupby(['day']).mean())
+
+        scaler = MinMaxScaler()
+        scalerfit = scaler.fit(np.array(mean_meteo_nat_df['meteo_natTh+0']).reshape(-1, 1))
+        cond_temp = scalerfit.transform(np.array(mean_meteo_nat_df['meteo_natTh+0']).reshape(-1, 1))
+        cond_temp = pd.DataFrame(cond_temp)
+
+        list_one_hot.append(cond_temp)
 
     # get conditional matrix
-    cond = pd.concat([one_hot_month, one_hot_weekday], axis=1)
+    cond = pd.concat(list_one_hot , axis=1)
     cond = cond.as_matrix()
 
     return cond
 
+
+def get_dataset_autoencoder(dict_xconso, type_x=['conso'],type_cond=['month', 'weekday']):
+
+    dataset = {}
+    for key, x_conso in dict_xconso.items():
+        x, cond, cvae_ds = get_x_cond_autoencoder(x_conso=x_conso, type_x=type_x, type_cond=type_cond)
+        dataset[key] = {'x': [x, cond], 'y': x, 'ds': cvae_ds}
+
+    return dataset
