@@ -152,6 +152,55 @@ def pyplot_latent_space_projection_temp(x_proj, calendar_info, temp, path_folder
     plt.show()
 
 
+def pyplot_latent_space_projection_error(x_proj, calendar_info, error, color=None, path_folder_out=None, name=None):
+    """
+
+    :param x_proj:
+    :param calendar_info:
+    :param path_folder_out:
+    :param name:
+    :return:
+    """
+
+    #Different possible colormap: seismic
+
+    mask_isweekday = False
+    mask_ishd = False
+
+    if color is None:
+        cmap_color = 'seismic'
+    else:
+        cmap_color = color
+
+    if 'is_weekday' in calendar_info.columns:
+        mask_isweekday = calendar_info.is_weekday.astype('bool')
+
+    if 'is_hd' in calendar_info.columns:
+        mask_ishd = calendar_info.is_hd.astype('bool')
+
+    plt.figure(figsize=(17, 15))
+    plt.scatter(x_proj[mask_isweekday, 0], x_proj[mask_isweekday, 1], marker='.', lw=2,
+                c=error[mask_isweekday], cmap=plt.cm.get_cmap(cmap_color), label='Week days')
+    plt.scatter(x_proj[np.invert(mask_isweekday), 0], x_proj[np.invert(mask_isweekday), 1], marker='+', lw=2,
+                c=error[np.invert(mask_isweekday)], cmap=plt.cm.get_cmap(cmap_color), label='Weekend')
+
+    plt.colorbar(label='Error')
+    #plt.clim(-0.5, 11.5)
+    plt.scatter(x_proj[mask_ishd, 0], x_proj[mask_ishd, 1], marker='x', lw=3,
+                c=error[mask_ishd], cmap=plt.cm.get_cmap(cmap_color), label='Holiday Days')
+
+    plt.legend()
+    plt.title('Projection on the latent space')
+
+    if name is None:
+        name = 'latent_space_proj'
+
+    if path_folder_out is not None:
+        plt.savefig(os.path.join(path_folder_out, name + '.png'))
+
+    plt.show()
+
+
 def plotly_latent_space_projection(x_proj, calendar_info, path_folder_out, name=None):
     """
 
