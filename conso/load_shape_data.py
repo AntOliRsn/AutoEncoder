@@ -362,11 +362,12 @@ def get_x_cond_autoencoder(x_conso, type_x = ['conso'], type_cond = ['month', 'w
     x_ds = x_conso.copy()
 
     # Enumerate days
-    nb_day = (x_ds['ds'] - x_ds['ds'][0]).apply(lambda td: td.days)
-    x_ds['day'] = nb_day
+    x_ds['day'] = (x_ds['ds'] - x_ds['ds'][0]).apply(lambda td: td.days)
     x_ds['minute'] = x_ds['ds'].dt.hour * 100 + x_ds['ds'].dt.minute
 
-    x_ae = np.zeros((nb_day.max()+1, 0))
+    nb_day = len(x_ds['ds'].dt.normalize().unique())
+
+    x_ae = np.zeros((nb_day, 0))
     if 'conso' in type_x:
         # pandas pivot
         x = x_ds[['conso_nat_t0', 'day', 'minute']].pivot('day', 'minute')['conso_nat_t0']
