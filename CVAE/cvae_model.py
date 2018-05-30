@@ -103,7 +103,7 @@ class BaseModel():
 
 
 class CVAE(BaseModel):
-    def __init__(self, input_dim=96, cond_dim=12, z_dim=2, e_dims=[24], d_dims=[24], beta=1, **kwargs):
+    def __init__(self, input_dim=96, cond_dim=12, z_dim=2, e_dims=[24], d_dims=[24], beta=1, verbose=True,**kwargs):
         super().__init__(**kwargs)
         self.input_dim = input_dim
         self.cond_dim = cond_dim
@@ -114,10 +114,11 @@ class CVAE(BaseModel):
         self.encoder = None
         self.decoder = None
         self.cvae = None
+        self.verbose = verbose
 
         self.build_model()
 
-    def build_model(self, verbose=True):
+    def build_model(self):
         """
 
         :param verbose:
@@ -156,7 +157,7 @@ class CVAE(BaseModel):
         self.store_to_save('encoder')
         self.store_to_save('decoder')
 
-        if verbose:
+        if self.verbose:
             print("complete model: ")
             self.cvae.summary()
             print("encoder: ")

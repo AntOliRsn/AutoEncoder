@@ -64,7 +64,7 @@ def plot_conso_day(date, X, ds):
     plt.plot(date_day_ds, conso_day)
     plt.show()
 
-def pyplot_latent_space_projection(x_proj, calendar_info, path_folder_out, name=None):
+def pyplot_latent_space_projection(x_proj, calendar_info, path_folder_out, name=None, size_fig=(17,15)):
     """
 
     :param x_proj:
@@ -87,7 +87,7 @@ def pyplot_latent_space_projection(x_proj, calendar_info, path_folder_out, name=
     if 'is_hd' in calendar_info.columns:
         mask_ishd = calendar_info.is_hd.astype('bool')
 
-    plt.figure(figsize=(17, 15))
+    plt.figure(figsize=size_fig)
     plt.scatter(x_proj[mask_isweekday, 0], x_proj[mask_isweekday, 1], marker='.', lw=2,
                 c=month[mask_isweekday], cmap=plt.cm.get_cmap('nipy_spectral', 12), label='Week days')
     plt.scatter(x_proj[np.invert(mask_isweekday), 0], x_proj[np.invert(mask_isweekday), 1], marker='+', lw=2,
@@ -104,7 +104,8 @@ def pyplot_latent_space_projection(x_proj, calendar_info, path_folder_out, name=
     if name is None:
         name = 'latent_space_proj'
 
-    plt.savefig(os.path.join(path_folder_out, name + '.png'))
+    if path_folder_out is not None:
+        plt.savefig(os.path.join(path_folder_out, name + '.png'))
 
     plt.show()
 
@@ -147,7 +148,8 @@ def pyplot_latent_space_projection_temp(x_proj, calendar_info, temp, path_folder
     if name is None:
         name = 'latent_space_proj'
 
-    plt.savefig(os.path.join(path_folder_out, name + '.png'))
+    if path_folder_out is not None:
+        plt.savefig(os.path.join(path_folder_out, name + '.png'))
 
     plt.show()
 
