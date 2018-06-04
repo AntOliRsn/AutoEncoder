@@ -353,7 +353,7 @@ def normalize_xconso(dict_xconso, dict_colnames_conso, type_scaler = 'standard')
 
         dict_xconso_scaled['test'] = x_test_scaled
 
-    return dict_xconso_scaled
+    return dict_xconso_scaled, scalerfit
 
 
 def get_x_cond_autoencoder(x_conso, type_x = ['conso'], type_cond = ['month', 'weekday'], data_conso_df = None):

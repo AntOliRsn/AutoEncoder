@@ -84,6 +84,7 @@ def pyplot_latent_space_projection(x_proj, calendar_info, path_folder_out, name=
     if 'is_weekday' in calendar_info.columns:
         mask_isweekday = calendar_info.is_weekday.astype('bool')
 
+
     if 'is_hd' in calendar_info.columns:
         mask_ishd = calendar_info.is_hd.astype('bool')
 
