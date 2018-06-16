@@ -64,6 +64,8 @@ def plot_conso_day(date, X, ds):
     plt.plot(date_day_ds, conso_day)
     plt.show()
 
+
+
 def pyplot_latent_space_projection(x_proj, calendar_info, path_folder_out, name=None, size_fig=(17,15)):
     """
 

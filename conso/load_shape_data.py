@@ -400,14 +400,14 @@ def get_x_cond_autoencoder(x_conso, type_x = ['conso'], type_cond = ['month', 'w
 
     ### Cond
 
-    cond = get_cond_autoencoder(ds, type_cond, data_conso_df)
+    cond = get_cond_autoencoder(x_conso, ds, type_cond, data_conso_df)
 
     assert x_ae.shape[0] == cond.shape[0]
 
     return x_ae, cond, ds
 
 
-def get_cond_autoencoder(ds, type_cond=['month', 'weekday'], data_conso_df=None):
+def get_cond_autoencoder(x_conso, ds, type_cond=['month', 'weekday'], data_conso_df=None):
 
     # get calendar info
     calendar_info = pd.DataFrame(ds)
@@ -429,6 +429,7 @@ def get_cond_autoencoder(ds, type_cond=['month', 'weekday'], data_conso_df=None)
         one_hot_weekday = pd.get_dummies(calendar_info.is_weekday, prefix='weekday')
         list_one_hot.append(one_hot_weekday)
 
+    # Continious variable representing the avarage temperature of the day
     if 'temp' in type_cond:
         meteo_nat_df = data_conso_df[['ds', 'meteo_natTh+0']].copy()
         day_count = (meteo_nat_df['ds'] - meteo_nat_df['ds'][0]).apply(lambda td: td.days)
@@ -440,6 +441,23 @@ def get_cond_autoencoder(ds, type_cond=['month', 'weekday'], data_conso_df=None)
         scalerfit = scaler.fit(np.array(mean_meteo_nat_df['meteo_natTh+0']).reshape(-1, 1))
         cond_temp = scalerfit.transform(np.array(mean_meteo_nat_df['meteo_natTh+0']).reshape(-1, 1))
         cond_temp = pd.DataFrame(cond_temp)
+
+        list_one_hot.append(cond_temp)
+
+    # Full temperature profile
+    if 'temperature' in type_cond:
+        x_ds = x_conso.copy()
+
+        # Enumerate days
+        x_ds['day'] = (x_ds['ds'] - x_ds['ds'][0]).apply(lambda td: td.days)
+        x_ds['minute'] = x_ds['ds'].dt.hour * 100 + x_ds['ds'].dt.minute
+
+        # pandas pivot
+        cond_temp = x_ds[['meteo_natTh+0', 'day', 'minute']].pivot('day', 'minute')['meteo_natTh+0']
+
+        # Replacing missing values due to the change of hour in march
+        # TODO: interpolation for the hour of the given days
+        cond_temp[cond_temp.isna()] = cond_temp.as_matrix().mean(axis=0)[7]
 
         list_one_hot.append(cond_temp)
 

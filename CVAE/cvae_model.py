@@ -245,3 +245,112 @@ class CVAE(BaseModel):
                              callbacks=callbacks, verbose=True)
 
         return cvae_hist
+
+
+class CVAE_temp(CVAE):
+    """
+    Improvement of CVAE that encode the temperature as a condition
+    """
+    def __init__(self, to_emb_dim=96, cond_pre_dim=12, emb_dims=[2], **kwargs):
+
+        self.to_emb_dim = to_emb_dim
+        self.cond_pre_dim = cond_pre_dim
+        self.emb_dims = emb_dims
+        self.embedding = None
+
+        super().__init__(cond_dim=self.cond_pre_dim + self.emb_dims[-1],**kwargs)
+
+    def build_model(self):
+        """
+
+        :param verbose:
+        :return:
+        """
+
+        self.encoder = self.build_encoder()
+        self.decoder = self.build_decoder()
+        self.embedding = self.build_embedding()
+
+        x_true = Input(shape=(self.input_dim,), name='x_true')
+        to_emb = Input(shape=(self.to_emb_dim,), name='to_emb')
+        cond_pre = Input(shape=(self.cond_pre_dim,), name='cond_pre')
+
+        cond_emb = self.embedding(inputs=to_emb)
+
+        cond_true = concatenate([cond_pre, cond_emb], name='conc_cond')
+
+        # Encoding
+        z_mu, z_log_sigma = self.encoder([x_true, cond_true])
+
+        # Sampling
+        def sample_z(args):
+            mu, log_sigma = args
+            eps = K.random_normal(shape=(K.shape(mu)[0], self.z_dim), mean=0., stddev=1.)
+            return mu + K.exp(log_sigma / 2) * eps
+
+        z = Lambda(sample_z, name='sample_z')([z_mu, z_log_sigma])
+
+        # Decoding
+        x_hat = self.decoder([z, cond_true])
+
+        # Defining loss
+        vae_loss, recon_loss, kl_loss = self.build_loss(z_mu, z_log_sigma)
+
+        # Defining and compiling cvae model
+        self.cvae = Model(inputs=[x_true, cond_pre, to_emb], outputs=x_hat)
+        self.cvae.compile(optimizer='rmsprop', loss=vae_loss, metrics=[kl_loss, recon_loss])
+
+        # Store trainers
+        self.store_to_save('cvae')
+
+        self.store_to_save('encoder')
+        self.store_to_save('decoder')
+
+        if self.verbose:
+            print("complete model: ")
+            self.cvae.summary()
+            print("embedding: ")
+            self.embedding.summary()
+            print("encoder: ")
+            self.encoder.summary()
+            print("decoder: ")
+            self.decoder.summary()
+
+
+    def build_embedding(self):
+        """
+        Embedding of the temperature
+        :return:
+        """
+
+        x_inputs = Input(shape=(self.to_emb_dim,), name='emb_input')
+
+        x = x_inputs
+
+        for idx, layer_dim in enumerate(self.emb_dims[:-1]):
+            x = Dense(units=layer_dim, activation='relu', name="emb_dense_{}".format(idx))(x)
+
+        embedding = Dense(units=self.emb_dims[-1], activation='linear', name="emb_dense_last")(x)
+
+        return Model(inputs=x_inputs, outputs=embedding, name='embedding')
+
+
+    def train(self, dataset_train, training_epochs=10, batch_size=20, callbacks = [], validation_data = None, verbose = True):
+        """
+
+        :param dataset_train:
+        :param training_epochs:
+        :param batch_size:
+        :param callbacks:
+        :param validation_data:
+        :param verbose:
+        :return:
+        """
+
+        assert len(dataset_train) >= 3  # Check that both x cond and temp are presents
+
+        cvae_hist = self.cvae.fit(dataset_train['x'], dataset_train['y'], batch_size=batch_size, epochs=training_epochs,
+                             validation_data=validation_data,
+                             callbacks=callbacks, verbose=True)
+
+        return cvae_hist
