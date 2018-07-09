@@ -16,6 +16,7 @@ import json
 
 path_data = '/home/antorosi/Documents/AutoEncoder/data'
 path_out = '/home/antorosi/Documents/AutoEncoder/out'
+path_thesis_figures = '/home/antorosi/Documents/Thesis/Figures'
 
 # Loading data set
 with open(os.path.join(path_data, 'mnist.pickle'), 'rb') as f:
@@ -49,8 +50,8 @@ optim = 'rmsprop'
 m = 200
 n_x = x_train.shape[1]
 n_y = y_train.shape[1]
-n_z = 50
-n_epoch = 20
+n_z = 2
+n_epoch = 30
 
 ### Model
 
@@ -171,10 +172,18 @@ def plot_loss():
 def plot_projections():
     # Results analysis
     x_test_encoded = encoder.predict([x_test, y_test])
-    plt.figure(figsize=(6, 6))
-    plt.scatter(x_test_encoded[:, 0], x_test_encoded[:, 1], c=y_test_ori)
-    plt.colorbar()
-    plt.show()
+    plt.figure(figsize=(8, 8))
+    plt.scatter(x_test_encoded[:, 0], x_test_encoded[:, 1],s=2,c=y_test_ori, cmap=plt.cm.get_cmap("jet", 10))
+    plt.colorbar(ticks=range(10))
+    plt.clim(-0.5, 9.5)
+    plt.xlabel("z1", size=14)
+    plt.ylabel("z2", size=14)
+    plt.axis("equal")
+
+    name = "MNIST_z2_CVAE"
+    plt.savefig(os.path.join(path_thesis_figures, name + '.png'))
+    plt.savefig(os.path.join(path_thesis_figures, name + '.pdf'))
+    plt.plot()
 
 
 def construct_numvec(digit, z = None):
@@ -189,8 +198,8 @@ def construct_numvec(digit, z = None):
 
 def plot_digit():
 
-    dig = 3
-    sides = 12
+    dig = 2
+    sides = 15
     max_z = 3
 
     img_it = 0
@@ -203,9 +212,13 @@ def plot_digit():
             decoded = decoder.predict(vec)
             plt.subplot(sides, sides, 1 + img_it)
             img_it +=1
-            plt.imshow(decoded.reshape(28, 28), cmap = plt.cm.gray), plt.axis('off')
+            plt.imshow(decoded.reshape(28, 28), cmap = 'gray_r'), plt.axis('off')
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=.2)
-    plt.show()
+
+    name = "CVAE_manifold_z2_{}_{}".format(dig,sides)
+    plt.savefig(os.path.join(path_thesis_figures, name + '.png'))
+    plt.savefig(os.path.join(path_thesis_figures, name + '.pdf'))
+    plt.plot()
 
 ####
 

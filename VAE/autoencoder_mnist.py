@@ -27,25 +27,16 @@ original_dim = 784
 latent_dim = 2
 intermediate_dim_2 = 512
 intermediate_dim = 256
-epochs = 50
+epochs = 30
 epsilon_std = 1.0
 
 
 x = Input(shape=(original_dim,))
 h = Dense(intermediate_dim_2, activation='relu')(x)
 h = Dense(intermediate_dim, activation='relu')(h)
-z_mean = Dense(latent_dim)(h)
-z_log_var = Dense(latent_dim)(h)
 
+z = Dense(latent_dim, activation='linear')(h)
 
-def sampling(args):
-    z_mean, z_log_var = args
-    epsilon = K.random_normal(shape=(K.shape(z_mean)[0], latent_dim), mean=0.,
-                              stddev=epsilon_std)
-    return z_mean + K.exp(z_log_var / 2) * epsilon
-
-# note that "output_shape" isn't necessary with the TensorFlow backend
-z = Lambda(sampling, output_shape=(latent_dim,))([z_mean, z_log_var])
 
 # we instantiate these layers separately so as to reuse them later
 decoder_h = Dense(intermediate_dim, activation='relu')
@@ -56,16 +47,15 @@ h_decoded_2 = decoder_h_2(h_decoded)
 x_decoded_mean = decoder_mean(h_decoded_2)
 
 # instantiate VAE model
-vae = Model(x, x_decoded_mean)
+ae = Model(x, x_decoded_mean)
 
 # Compute VAE loss
 xent_loss = original_dim * metrics.binary_crossentropy(x, x_decoded_mean)
-kl_loss = - 0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
-vae_loss = K.mean(xent_loss + kl_loss)
+vae_loss = K.mean(xent_loss)
 
-vae.add_loss(vae_loss)
-vae.compile(optimizer='rmsprop')
-vae.summary()
+ae.add_loss(vae_loss)
+ae.compile(optimizer='adam')
+ae.summary()
 
 # train the VAE on MNIST digits
 x_train = mnist['x_train']
@@ -78,7 +68,7 @@ x_test = x_test.astype('float32') / 255.
 x_train = x_train.reshape((len(x_train), np.prod(x_train.shape[1:])))
 x_test = x_test.reshape((len(x_test), np.prod(x_test.shape[1:])))
 
-vae.fit(x_train,
+ae.fit(x_train,
         shuffle=True,
         epochs=epochs,
         batch_size=batch_size,
@@ -87,21 +77,20 @@ vae.fit(x_train,
         )
 
 # build a model to project inputs on the latent space
-encoder = Model(x, z_mean)
-
+encoder = Model(x, z)
 
 def plot_projections():
     # Results analysis
     x_test_encoded = encoder.predict(x_test)
     plt.figure(figsize=(8, 8))
-    plt.scatter(-x_test_encoded[:, 1], x_test_encoded[:, 0],s=2,c=y_test, cmap=plt.cm.get_cmap("jet", 10))
+    plt.scatter(x_test_encoded[:, 0], -x_test_encoded[:, 1],s=2,c=y_test, cmap=plt.cm.get_cmap("jet", 10))
     plt.colorbar(ticks=range(10))
     plt.clim(-0.5, 9.5)
     plt.xlabel("z1", size=14)
     plt.ylabel("z2", size=14)
     plt.axis('equal')
 
-    name = "MNIST_z2_VAE"
+    name = "MNIST_z2_AE"
     plt.savefig(os.path.join(path_thesis_figures, name + '.png'))
     plt.savefig(os.path.join(path_thesis_figures, name + '.pdf'))
     plt.plot()
