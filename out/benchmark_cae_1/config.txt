@@ -1,0 +1,5 @@
+cond pred dim : 14
+emb_dims : [2]
+e_dims : [24, 12]
+d_dims : [12, 24]
+train_set : 1234
